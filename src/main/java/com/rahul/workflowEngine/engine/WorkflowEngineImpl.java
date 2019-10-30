@@ -17,6 +17,7 @@ public class WorkflowEngineImpl implements WorkflowEngine {
 	private CountDownLatch latch;
 	private ExecutorService executor;
 	private TokenListener listner;
+	private WorkflowContext context;
 
 	@Override
 	public void executeWorkflow(Workflow workflow) {
@@ -50,12 +51,13 @@ public class WorkflowEngineImpl implements WorkflowEngine {
 	private void initializeEngine(Workflow workflow) {
 		this.queue = new LinkedList<Task>(workflow.getWorkflowTasks());
 		this.latch = new CountDownLatch(queue.size());
+		this.context = workflow.getContext();
 		this.executor = Executors.newFixedThreadPool(2);
 	}
 
 	private void executeNextTask() {
 		if (!queue.isEmpty()) {
-			queue.poll().execute(new CompletionToken(this.listner));
+			queue.poll().execute(new CompletionToken(this.listner), this.context);
 			latch.countDown();
 		}
 	}

@@ -21,7 +21,7 @@ class WorkflowEngineImplTest {
 	}
 
 	private Task getTaskWithDelay(String taskName, int seconds) {
-		return token -> {
+		return (token, context) -> {
 			try {
 				TimeUnit.SECONDS.sleep(seconds);
 			} catch (InterruptedException e) {
