@@ -2,10 +2,12 @@ package com.rahul.workflowEngine.engine;
 
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import com.rahul.workflowEngine.task.FailureHandler;
 import com.rahul.workflowEngine.task.Task;
 import com.rahul.workflowEngine.token.CompletionToken;
 import com.rahul.workflowEngine.token.LambdaTokenListner;
@@ -17,13 +19,18 @@ public class WorkflowEngineImpl implements WorkflowEngine {
 	private CountDownLatch latch;
 	private ExecutorService executor;
 	private TokenListener listner;
+	private TokenListener failureListener;
+	private FailureHandler errorTask;
 	private WorkflowContext context;
+	private CompletableFuture<Void> successPromise;
 
 	@Override
-	public void executeWorkflow(Workflow workflow) {
+	public CompletableFuture<Void> executeWorkflow(Workflow workflow) {
 
+		initializePromise();
 		initializeEngine(workflow);
-		initializeListner();
+		initializeListener();
+		initializeFailureListener();
 
 		executor.execute(() -> {
 			executeNextTask();
@@ -34,16 +41,40 @@ public class WorkflowEngineImpl implements WorkflowEngine {
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		} finally {
-			executor.shutdown();
+			this.shutdownWorkflow();
 
 		}
 
+		return successPromise;
+
 	}
 
-	private void initializeListner() {
+	private void initializePromise() {
+		this.successPromise = new CompletableFuture<>();
+
+	}
+
+	private void initializeFailureListener() {
+		this.failureListener = new LambdaTokenListner(() -> {
+			WorkflowEngineImpl.this.shutdownWorkflow();
+		}, error -> {
+			throw new RuntimeException("Workflow has failed");
+		});
+	}
+
+	private void shutdownWorkflow() {
+		this.executor.shutdown();
+		successPromise.complete(null);
+	}
+
+	private void initializeListener() {
 		this.listner = new LambdaTokenListner(() -> {
 			this.executeNextTask();
 		}, error -> {
+			this.executor.execute(() -> {
+				this.errorTask.handle(new CompletionToken(failureListener), this.context, error);
+			});
+			this.shutdownWorkflow();
 		});
 
 	}
@@ -52,6 +83,7 @@ public class WorkflowEngineImpl implements WorkflowEngine {
 		this.queue = new LinkedList<Task>(workflow.getWorkflowTasks());
 		this.latch = new CountDownLatch(queue.size());
 		this.context = workflow.getContext();
+		this.errorTask = workflow.getErrorTask();
 		this.executor = Executors.newFixedThreadPool(2);
 	}
 

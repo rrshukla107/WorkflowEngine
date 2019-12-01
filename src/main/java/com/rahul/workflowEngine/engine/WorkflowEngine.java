@@ -1,6 +1,8 @@
 package com.rahul.workflowEngine.engine;
 
+import java.util.concurrent.CompletableFuture;
+
 public interface WorkflowEngine {
 
-	public void executeWorkflow(Workflow workflow);
+	public CompletableFuture<Void> executeWorkflow(Workflow workflow);
 }
