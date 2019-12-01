@@ -1,5 +1,5 @@
 package com.rahul.workflowEngine.engine;
 
 public interface WorkflowContext {
-	// marker Interface
+// marker interface for now
 }

@@ -3,11 +3,25 @@ package com.rahul.workflowEngine.engine;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import com.rahul.workflowEngine.task.Task;
 
 class WorkflowEngineImplTest {
+
+	private class AdderContext implements WorkflowContext {
+
+		private int sum;
+
+		public int getSum() {
+			return sum;
+		}
+
+		public void setSum(int sum) {
+			this.sum = sum;
+		}
+	}
 
 	@Test
 	void simulateWorkflow() {
@@ -35,6 +49,28 @@ class WorkflowEngineImplTest {
 			System.out.println("Tasks Executed Successfully");
 		});
 
+	}
+
+	@Test
+	void simulateWorkflow_buildResultInContext() {
+
+		WorkflowContext adderContext = new AdderContext();
+
+		List<Task> tasks = List.of((token, context) -> {
+			((AdderContext) context).setSum(0);
+			token.success();
+		}, (token, context) -> {
+			((AdderContext) context).setSum(((AdderContext) context).getSum() + 5);
+			token.success();
+		}, (token, context) -> {
+			((AdderContext) context).setSum(((AdderContext) context).getSum() + 10);
+			token.success();
+		});
+
+		Workflow workflow = new WorkflowBuilder().addTasks(tasks).withContext(adderContext).build();
+		new WorkflowEngineImpl().executeWorkflow(workflow).thenAccept(v -> {
+			Assertions.assertEquals(15, ((AdderContext) adderContext).getSum());
+		});
 	}
 
 	private Task getTaskWithFailure() {
