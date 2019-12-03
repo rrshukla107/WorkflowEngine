@@ -33,17 +33,16 @@ public class WorkflowEngineImpl implements WorkflowEngine {
 		initializeFailureListener();
 
 		executor.execute(() -> {
-			executeNextTask();
-		});
 
-		try {
-			latch.await();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		} finally {
+			executeNextTask();
+			try {
+				latch.await();
+			} catch (InterruptedException e) {
+				System.out.println("WORKFLOW FAILED");
+			}
 			this.shutdownWorkflow();
 
-		}
+		});
 
 		return successPromise;
 
@@ -63,7 +62,7 @@ public class WorkflowEngineImpl implements WorkflowEngine {
 	}
 
 	private void shutdownWorkflow() {
-		this.executor.shutdown();
+		this.executor.shutdownNow();
 		successPromise.complete(null);
 	}
 
@@ -71,10 +70,7 @@ public class WorkflowEngineImpl implements WorkflowEngine {
 		this.listner = new LambdaTokenListner(() -> {
 			this.executeNextTask();
 		}, error -> {
-			this.executor.execute(() -> {
-				this.errorTask.handle(new CompletionToken(failureListener), this.context, error);
-			});
-			this.shutdownWorkflow();
+			this.errorTask.handle(new CompletionToken(failureListener), this.context, error);
 		});
 
 	}

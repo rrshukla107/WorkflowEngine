@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.rahul.workflowEngine.task.FailureHandler;
 import com.rahul.workflowEngine.task.Task;
 
 class WorkflowEngineImplTest {
@@ -41,10 +42,12 @@ class WorkflowEngineImplTest {
 
 		List<Task> tasks = List.of(this.getTaskWithDelay("Task 1", 2), this.getTaskWithDelay("Task 2", 3),
 				this.getTaskWithDelay("Task 3", 3), this.getTaskWithFailure());
-		Workflow workflow = new WorkflowBuilder().addTasks(tasks).addFailureHandler((token, context, error) -> {
-			System.out.println("Failure Detected");
+		FailureHandler failureHandler = (token, context, error) -> {
+			System.out.println("Failure Detected***");
 			error.printStackTrace(System.out);
-		}).build();
+			token.success();
+		};
+		Workflow workflow = new WorkflowBuilder().addTasks(tasks).addFailureHandler(failureHandler).build();
 		new WorkflowEngineImpl().executeWorkflow(workflow).thenAccept(v -> {
 			System.out.println("Tasks Executed Successfully");
 		});

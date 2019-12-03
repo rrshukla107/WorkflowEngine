@@ -1,26 +1,42 @@
 package com.rahul.workflowEngine.examples;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.rahul.workflowEngine.engine.Workflow;
 import com.rahul.workflowEngine.engine.WorkflowBuilder;
 import com.rahul.workflowEngine.engine.WorkflowContext;
 import com.rahul.workflowEngine.engine.WorkflowEngineImpl;
+import com.rahul.workflowEngine.task.FailureHandler;
 import com.rahul.workflowEngine.task.Task;
+import com.rahul.workflowEngine.token.Token;
 
 public class ShoppingCartScenarioTest {
 
 	private enum Location {
 		CA, OUT_CA
 	}
+
+	private static int VALID_USER_ID = 1;
+	private static int INVALID_USER_ID = 2;
+
+	private CountDownLatch latch;
+
+	private Task validateUser;
+	private Task getItemsInUserCart;
+	private Task getSellersForShoppingCartItems;
+	private Task filterSellersOnlyInCalifornia;
+	private FailureHandler failureHandler;
 
 	class ShoppingCartContext implements WorkflowContext {
 
@@ -54,10 +70,11 @@ public class ShoppingCartScenarioTest {
 
 	}
 
-	@Test
-	public void findSellers_ForItems_InShoppingCart() {
+	@BeforeEach
+	public void setup() {
+		this.latch = new CountDownLatch(1);
 
-		Task validateUser = (token, context) -> {
+		this.validateUser = (token, context) -> {
 			if (this.validate(((ShoppingCartContext) context).getUser())) {
 				System.out.println("USER VALIDATED SUCCESSFULLY");
 				token.success();
@@ -66,7 +83,7 @@ public class ShoppingCartScenarioTest {
 			}
 		};
 
-		Task getItemsInUserCart = (token, context) -> {
+		this.getItemsInUserCart = (token, context) -> {
 			ShoppingCartContext shoppingCartContext = (ShoppingCartContext) context;
 			ShoppingCart shoppingCart = this.getUserShoppingCart(shoppingCartContext.getUser());
 			shoppingCartContext.setCart(shoppingCart);
@@ -75,7 +92,7 @@ public class ShoppingCartScenarioTest {
 
 		};
 
-		Task getSellersForShoppingCartItems = (token, context) -> {
+		this.getSellersForShoppingCartItems = (token, context) -> {
 			ShoppingCartContext shoppingCartContext = (ShoppingCartContext) context;
 
 			shoppingCartContext.getCart().getItems().forEach(item -> {
@@ -85,28 +102,74 @@ public class ShoppingCartScenarioTest {
 			token.success();
 		};
 
-		ShoppingCartContext shoppingCartContext = new ShoppingCartContext();
+		this.filterSellersOnlyInCalifornia = (token, context) -> {
+			ShoppingCartContext shoppingCartContext = (ShoppingCartContext) context;
 
-		shoppingCartContext.setUser(new User(1));
-
-		Workflow workflow = new WorkflowBuilder()
-				.addTasks(List.of(validateUser, getItemsInUserCart, getSellersForShoppingCartItems))
-				.withContext(shoppingCartContext).build();
-
-		new WorkflowEngineImpl().executeWorkflow(workflow).thenAccept(v -> {
+			final Map<Item, List<Seller>> sellersInCalifornia = new HashMap<>();
 			shoppingCartContext.getSellers().forEach((item, sellers) -> {
-				System.out.println("ITEM - " + item.getName());
-				System.out.println("SELLERS - ");
-
-				sellers.forEach(seller -> System.out.println("Id - " + seller.id + " Location - " + seller.location));
+				sellersInCalifornia.put(item, sellers.stream().filter(seller -> seller.getLocation() == Location.CA)
+						.collect(Collectors.toList()));
 
 			});
 
-			System.out.println("***Workflow executed successfully***");
-		});
+			shoppingCartContext.setSellers(sellersInCalifornia);
+			System.out.println("FILTERING SELLERS IN CALIFORNIA");
+			token.success();
 
+		};
+
+		this.failureHandler = (token, context, error) -> {
+			System.out.println("????FAILURE IN WORKFLOW???");
+			System.out.println(error.getMessage());
+			((ShoppingCartContext) context).setSellers(Collections.EMPTY_MAP);
+			token.success();
+		};
 	}
 
+	@Test
+	public void findSellers_ForItems_InShoppingCart() {
+
+		// CREATING A SHOPPING CART CONTEXT - passed on to the tasks
+		ShoppingCartContext shoppingCartContext = new ShoppingCartContext();
+		// setting the user in the context
+//		shoppingCartContext.setUser(new User(VALID_USER_ID));
+		shoppingCartContext.setUser(new User(INVALID_USER_ID));
+
+		// INSTANTIATION OF WORKFLOW USING A WORKFLOW BUILDER
+		// 1. ADDING ALL THE TASKS
+		// 2. FAILURE HANDLER
+		// 3. CONTEXT
+		Workflow workflow = new WorkflowBuilder()
+				.addTasks(List.of(validateUser, getItemsInUserCart, getSellersForShoppingCartItems))
+				.addFailureHandler(failureHandler).withContext(shoppingCartContext).build();
+
+		new WorkflowEngineImpl().executeWorkflow(workflow).thenAccept(v -> {
+			System.out.println("***Workflow executed successfully***");
+			displaySellers(shoppingCartContext);
+			latch.countDown();
+		});
+
+		try {
+			latch.await();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void displaySellers(ShoppingCartContext shoppingCartContext) {
+		shoppingCartContext.getSellers().forEach((item, sellers) -> {
+			System.out.println("==================================================================================");
+			System.out.println("ITEM - " + item.getName());
+			System.out.println("SELLERS - ");
+
+			sellers.forEach(seller -> System.out.println("Id - " + seller.id + " Location - " + seller.location));
+			System.out.println("==================================================================================");
+		});
+	}
+
+	/******************************************************************************
+	 ********************************* MOCKING API**********************************
+	 *****************************************************************************/
 	private boolean validate(User user) {
 
 		try {
@@ -114,7 +177,8 @@ public class ShoppingCartScenarioTest {
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
-		return true;
+		boolean result = user.getUserId() == VALID_USER_ID ? true : false;
+		return result;
 
 	}
 
@@ -133,7 +197,7 @@ public class ShoppingCartScenarioTest {
 
 	private List<Seller> getSellers(final Item item) {
 		try {
-			TimeUnit.SECONDS.sleep(2);
+			TimeUnit.MILLISECONDS.sleep(500);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
