@@ -121,26 +121,27 @@ public class ShoppingCartScenarioTest {
 		this.failureHandler = (token, context, error) -> {
 			System.out.println("????FAILURE IN WORKFLOW???");
 			System.out.println(error.getMessage());
-			((ShoppingCartContext) context).setSellers(Collections.EMPTY_MAP);
+			((ShoppingCartContext) context).setSellers(Collections.emptyMap());
 			token.success();
 		};
 	}
 
 	@Test
-	public void findSellers_ForItems_InShoppingCart() {
+	public void findSellers_ForItems_InShoppingCart() throws InterruptedException {
 
 		// CREATING A SHOPPING CART CONTEXT - passed on to the tasks
 		ShoppingCartContext shoppingCartContext = new ShoppingCartContext();
 		// setting the user in the context
-//		shoppingCartContext.setUser(new User(VALID_USER_ID));
-		shoppingCartContext.setUser(new User(INVALID_USER_ID));
+		shoppingCartContext.setUser(new User(VALID_USER_ID));
+//		shoppingCartContext.setUser(new User(INVALID_USER_ID));
 
 		// INSTANTIATION OF WORKFLOW USING A WORKFLOW BUILDER
 		// 1. ADDING ALL THE TASKS
 		// 2. FAILURE HANDLER
 		// 3. CONTEXT
 		Workflow workflow = new WorkflowBuilder()
-				.addTasks(List.of(validateUser, getItemsInUserCart, getSellersForShoppingCartItems))
+				.addTasks(List.of(validateUser, getItemsInUserCart, getSellersForShoppingCartItems,
+						filterSellersOnlyInCalifornia))
 				.addFailureHandler(failureHandler).withContext(shoppingCartContext).build();
 
 		new WorkflowEngineImpl().executeWorkflow(workflow).thenAccept(v -> {
@@ -149,11 +150,8 @@ public class ShoppingCartScenarioTest {
 			latch.countDown();
 		});
 
-		try {
-			latch.await();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+		// Waiting for the promise to be successfull
+		latch.await();
 	}
 
 	private void displaySellers(ShoppingCartContext shoppingCartContext) {
@@ -202,8 +200,8 @@ public class ShoppingCartScenarioTest {
 			e.printStackTrace();
 		}
 
-		return IntStream.range(1, getRandomInteger(5, 2)).mapToObj(i -> new Seller("SELLER_" + item.name + "_" + i,
-				getRandomInteger(3, 1) == 2 ? Location.OUT_CA : Location.CA)).collect(Collectors.toList());
+		return IntStream.range(1, getRandomInteger(6, 3)).mapToObj(i -> new Seller("SELLER_" + item.name + "_" + i,
+				getRandomInteger(10, 1) > 4 ? Location.OUT_CA : Location.CA)).collect(Collectors.toList());
 
 	}
 

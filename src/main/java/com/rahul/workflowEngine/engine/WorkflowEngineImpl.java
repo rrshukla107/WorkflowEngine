@@ -38,7 +38,7 @@ public class WorkflowEngineImpl implements WorkflowEngine {
 			try {
 				latch.await();
 			} catch (InterruptedException e) {
-				System.out.println("WORKFLOW FAILED");
+				System.out.println("WORKFLOW DIRECTED TO FAILURE HANDLER");
 			}
 			this.shutdownWorkflow();
 
