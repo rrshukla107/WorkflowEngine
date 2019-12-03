@@ -213,16 +213,16 @@ public class ShoppingCartScenarioTest {
 		// CREATING A SHOPPING CART CONTEXT - passed on to the tasks
 		ShoppingCartContext shoppingCartContext = new ShoppingCartContext();
 		// setting the user in the context
-		shoppingCartContext.setUser(new User(VALID_USER_ID));
-//		shoppingCartContext.setUser(new User(INVALID_USER_ID));
+//		shoppingCartContext.setUser(new User(VALID_USER_ID));
+		shoppingCartContext.setUser(new User(INVALID_USER_ID));
 
 		// INSTANTIATION OF WORKFLOW USING A WORKFLOW BUILDER
 		// 1. ADDING ALL THE TASKS
 		// 2. FAILURE HANDLER
 		// 3. CONTEXT
 		Workflow workflow = new WorkflowBuilder()
-				.addTasks(List.of(validateUser, getItemsInUserCart, getSellersForShoppingCartItems,
-						filterSellersOnlyInCalifornia))
+				.addTasks(List.of(validateUser, getItemsInUserCart, getSellersForShoppingCartItems))
+				// filterSellersOnlyInCalifornia
 				.addFailureHandler(failureHandler).withContext(shoppingCartContext).build();
 
 		new WorkflowEngineImpl().executeWorkflow(workflow).thenAccept(v -> {
