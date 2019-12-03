@@ -149,6 +149,7 @@ public class ShoppingCartScenarioTest {
 		performTask(new AsyncTask() {
 			@Override
 			public Object execute() {
+				// ---------STEP 1 : VALIDATION-----------
 				return validate(user);
 			}
 		}, new Callback() {
@@ -158,6 +159,7 @@ public class ShoppingCartScenarioTest {
 				ShoppingCartScenarioTest.this.performTask(new AsyncTask() {
 					@Override
 					public Object execute() {
+						// ---------STEP 2 : GET USER SHOPPING CART-----------
 						return getUserShoppingCart(user);
 					}
 				}, new Callback() {
@@ -168,6 +170,7 @@ public class ShoppingCartScenarioTest {
 
 							@Override
 							public Object execute() {
+								// ---------STEP 3 : GET SELLERS FOR ITEMS IN CART-----------
 								Map<Item, List<Seller>> sellers = new HashMap<>();
 								ShoppingCart cart = (ShoppingCart) data;
 								cart.getItems().forEach(item -> {
