@@ -19,7 +19,6 @@ import com.rahul.workflowEngine.engine.WorkflowContext;
 import com.rahul.workflowEngine.engine.WorkflowEngineImpl;
 import com.rahul.workflowEngine.task.FailureHandler;
 import com.rahul.workflowEngine.task.Task;
-import com.rahul.workflowEngine.token.Token;
 
 public class ShoppingCartScenarioTest {
 
@@ -126,6 +125,85 @@ public class ShoppingCartScenarioTest {
 		};
 	}
 
+	private interface Callback<T> {
+
+		public void success(T data);
+
+		public void failure(Throwable error);
+
+	}
+
+	@FunctionalInterface
+	private interface AsyncTask {
+		public Object execute();
+	}
+
+	@SuppressWarnings("unchecked")
+	public void performTask(AsyncTask task, Callback callback) {
+		callback.success(task.execute());
+	}
+
+	@Test
+	public void callback_hell() {
+		User user = new User(VALID_USER_ID);
+		performTask(new AsyncTask() {
+			@Override
+			public Object execute() {
+				return validate(user);
+			}
+		}, new Callback() {
+			@Override
+			public void success(Object data) {
+				System.out.println("USER VALIDATED SUCCESSFULLY");
+				ShoppingCartScenarioTest.this.performTask(new AsyncTask() {
+					@Override
+					public Object execute() {
+						return getUserShoppingCart(user);
+					}
+				}, new Callback() {
+					@Override
+					public void success(Object data) {
+						System.out.println("RETRIEVED SHOPPING CART SUCCESSFULLY");
+						performTask(new AsyncTask() {
+
+							@Override
+							public Object execute() {
+								Map<Item, List<Seller>> sellers = new HashMap<>();
+								ShoppingCart cart = (ShoppingCart) data;
+								cart.getItems().forEach(item -> {
+									sellers.put(item, getSellers(item));
+								});
+								return sellers;
+							}
+						}, new Callback() {
+							@Override
+							public void success(Object data) {
+								System.out.println("GOT SELLERS FOR ITEMS IN SHOPPING CART");
+								displaySellers((Map<Item, List<Seller>>) data);
+							}
+
+							// ???WHERE TO HANDLE FAILURE????
+							@Override
+							public void failure(Throwable error) {
+							}
+						});
+					}
+
+					@Override
+					public void failure(Throwable error) {
+					}
+				});
+			}
+
+			@Override
+			public void failure(Throwable error) {
+
+			}
+		});
+		// ???WHERE TO HANDLE FAILURE????
+
+	}
+
 	@Test
 	public void findSellers_ForItems_InShoppingCart() throws InterruptedException {
 
@@ -146,16 +224,16 @@ public class ShoppingCartScenarioTest {
 
 		new WorkflowEngineImpl().executeWorkflow(workflow).thenAccept(v -> {
 			System.out.println("***Workflow executed successfully***");
-			displaySellers(shoppingCartContext);
+			displaySellers(shoppingCartContext.getSellers());
 			latch.countDown();
 		});
 
-		// Waiting for the promise to be successfull
+		// Waiting for the promise to be successful
 		latch.await();
 	}
 
-	private void displaySellers(ShoppingCartContext shoppingCartContext) {
-		shoppingCartContext.getSellers().forEach((item, sellers) -> {
+	private void displaySellers(Map<Item, List<Seller>> itemSellers) {
+		itemSellers.forEach((item, sellers) -> {
 			System.out.println("==================================================================================");
 			System.out.println("ITEM - " + item.getName());
 			System.out.println("SELLERS - ");
@@ -166,7 +244,7 @@ public class ShoppingCartScenarioTest {
 	}
 
 	/******************************************************************************
-	 ********************************* MOCKING API**********************************
+	 ********************************* MOCKING API*********************************
 	 *****************************************************************************/
 	private boolean validate(User user) {
 
