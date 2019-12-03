@@ -18,7 +18,7 @@ public class WorkflowBuilder {
 		return this;
 	}
 
-	public WorkflowBuilder addFailureTask(FailureHandler failureHandler) {
+	public WorkflowBuilder addFailureHandler(FailureHandler failureHandler) {
 		this.workflow.setFailureHandler(failureHandler);
 		return this;
 	}

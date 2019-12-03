@@ -41,7 +41,7 @@ class WorkflowEngineImplTest {
 
 		List<Task> tasks = List.of(this.getTaskWithDelay("Task 1", 2), this.getTaskWithDelay("Task 2", 3),
 				this.getTaskWithDelay("Task 3", 3), this.getTaskWithFailure());
-		Workflow workflow = new WorkflowBuilder().addTasks(tasks).addFailureTask((token, context, error) -> {
+		Workflow workflow = new WorkflowBuilder().addTasks(tasks).addFailureHandler((token, context, error) -> {
 			System.out.println("Failure Detected");
 			error.printStackTrace(System.out);
 		}).build();
