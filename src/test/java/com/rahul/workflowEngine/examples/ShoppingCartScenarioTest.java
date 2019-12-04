@@ -118,11 +118,39 @@ public class ShoppingCartScenarioTest {
 		};
 
 		this.failureHandler = (token, context, error) -> {
-			System.out.println("????FAILURE IN WORKFLOW???");
-			System.out.println(error.getMessage());
+			System.out.println("FAILURE ENCOUNTERED IN SHOPPING CART WORKFLOW - " + error.getMessage());
 			((ShoppingCartContext) context).setSellers(Collections.emptyMap());
 			token.success();
 		};
+	}
+
+	@Test
+	public void findSellers_ForItems_InShoppingCart() throws InterruptedException {
+
+		// CREATING A SHOPPING CART CONTEXT - passed on to the tasks
+		ShoppingCartContext shoppingCartContext = new ShoppingCartContext();
+		// setting the user in the context
+//		shoppingCartContext.setUser(new User(VALID_USER_ID));
+		shoppingCartContext.setUser(new User(INVALID_USER_ID));
+
+		// INSTANTIATION OF WORKFLOW USING A WORKFLOW BUILDER
+		// 1. ADDING ALL THE TASKS
+		// 2. FAILURE HANDLER
+		// 3. CONTEXT
+		Workflow workflow = new WorkflowBuilder()
+				.addTasks(List.of(validateUser, getItemsInUserCart, getSellersForShoppingCartItems,
+						filterSellersOnlyInCalifornia))
+				// filterSellersOnlyInCalifornia
+				.addFailureHandler(failureHandler).withContext(shoppingCartContext).build();
+
+		new WorkflowEngineImpl().executeWorkflow(workflow).thenAccept(v -> {
+			System.out.println("***Workflow executed successfully***");
+			displaySellers(shoppingCartContext.getSellers());
+			latch.countDown();
+		});
+
+		// Waiting for the promise to be successful
+		latch.await();
 	}
 
 	private interface Callback<T> {
@@ -205,34 +233,6 @@ public class ShoppingCartScenarioTest {
 		});
 		// ???WHERE TO HANDLE FAILURE????
 
-	}
-
-	@Test
-	public void findSellers_ForItems_InShoppingCart() throws InterruptedException {
-
-		// CREATING A SHOPPING CART CONTEXT - passed on to the tasks
-		ShoppingCartContext shoppingCartContext = new ShoppingCartContext();
-		// setting the user in the context
-//		shoppingCartContext.setUser(new User(VALID_USER_ID));
-		shoppingCartContext.setUser(new User(INVALID_USER_ID));
-
-		// INSTANTIATION OF WORKFLOW USING A WORKFLOW BUILDER
-		// 1. ADDING ALL THE TASKS
-		// 2. FAILURE HANDLER
-		// 3. CONTEXT
-		Workflow workflow = new WorkflowBuilder()
-				.addTasks(List.of(validateUser, getItemsInUserCart, getSellersForShoppingCartItems))
-				// filterSellersOnlyInCalifornia
-				.addFailureHandler(failureHandler).withContext(shoppingCartContext).build();
-
-		new WorkflowEngineImpl().executeWorkflow(workflow).thenAccept(v -> {
-			System.out.println("***Workflow executed successfully***");
-			displaySellers(shoppingCartContext.getSellers());
-			latch.countDown();
-		});
-
-		// Waiting for the promise to be successful
-		latch.await();
 	}
 
 	private void displaySellers(Map<Item, List<Seller>> itemSellers) {
