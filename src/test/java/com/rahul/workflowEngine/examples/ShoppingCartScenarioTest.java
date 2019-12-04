@@ -168,11 +168,13 @@ public class ShoppingCartScenarioTest {
 
 	@SuppressWarnings("unchecked")
 	public void performTask(AsyncTask task, Callback callback) {
-		callback.success(task.execute());
+		new Thread(() -> {
+			callback.success(task.execute());
+		}).start();
 	}
 
 	@Test
-	public void callback_hell() {
+	public void callback_hell() throws InterruptedException {
 		User user = new User(VALID_USER_ID);
 		performTask(new AsyncTask() {
 			@Override
@@ -211,6 +213,7 @@ public class ShoppingCartScenarioTest {
 							public void success(Object data) {
 								System.out.println("GOT SELLERS FOR ITEMS IN SHOPPING CART");
 								displaySellers((Map<Item, List<Seller>>) data);
+								latch.countDown();
 							}
 
 							// ???WHERE TO HANDLE FAILURE????
@@ -233,6 +236,8 @@ public class ShoppingCartScenarioTest {
 		});
 		// ???WHERE TO HANDLE FAILURE????
 
+		// Forcing the main thread to wait.
+		latch.await();
 	}
 
 	private void displaySellers(Map<Item, List<Seller>> itemSellers) {
