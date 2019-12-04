@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import com.rahul.workflowEngine.engine.Workflow;
 import com.rahul.workflowEngine.engine.WorkflowBuilder;
 import com.rahul.workflowEngine.engine.WorkflowContext;
+import com.rahul.workflowEngine.engine.WorkflowEngine;
 import com.rahul.workflowEngine.engine.WorkflowEngineImpl;
 import com.rahul.workflowEngine.task.FailureHandler;
 import com.rahul.workflowEngine.task.Task;
@@ -36,6 +37,7 @@ public class ShoppingCartScenarioTest {
 	private Task getSellersForShoppingCartItems;
 	private Task filterSellersOnlyInCalifornia;
 	private FailureHandler failureHandler;
+	private WorkflowEngine workflowEngine;
 
 	class ShoppingCartContext implements WorkflowContext {
 
@@ -72,6 +74,7 @@ public class ShoppingCartScenarioTest {
 	@BeforeEach
 	public void setup() {
 		this.latch = new CountDownLatch(1);
+		this.workflowEngine = new WorkflowEngineImpl();
 
 		this.validateUser = (token, context) -> {
 			if (this.validate(((ShoppingCartContext) context).getUser())) {
@@ -138,12 +141,11 @@ public class ShoppingCartScenarioTest {
 		// 2. FAILURE HANDLER
 		// 3. CONTEXT
 		Workflow workflow = new WorkflowBuilder()
-				.addTasks(List.of(validateUser, getItemsInUserCart, getSellersForShoppingCartItems,
-						filterSellersOnlyInCalifornia))
+				.addTasks(List.of(validateUser, getItemsInUserCart, getSellersForShoppingCartItems))
 				// filterSellersOnlyInCalifornia
 				.addFailureHandler(failureHandler).withContext(shoppingCartContext).build();
 
-		new WorkflowEngineImpl().executeWorkflow(workflow).thenAccept(v -> {
+		this.workflowEngine.executeWorkflow(workflow).thenAccept(v -> {
 			System.out.println("***Workflow executed successfully***");
 			displaySellers(shoppingCartContext.getSellers());
 			latch.countDown();
